@@ -1,0 +1,72 @@
+---
+title: "Sites_with_missing_Soil_P_fill_up"
+author: "Di Tian"
+date: "2021/7/21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(maptools)
+library(rgeos)
+library(raster)
+library(ncdf4)
+library(rasterVis)
+library(lattice)
+library(dplyr)
+library(rgdal)
+```
+
+```{r setup, include=FALSE}
+#from He et al. 2021. Global patterns and drivers of soil total phosphorus concentration.
+nsp1 <- "stp_prediction_5cm.tif"
+nsp_d1 = raster(nsp1)
+#use the sites' location with missing values of soil P
+occ_train <- read.csv("missing_sites.csv")
+str(occ_train)
+occ_plot <- occ_train
+coordinates(occ_plot) <- ~ Lon + Lat
+
+#add Coordinate Reference System (CRS) projection.
+myCRS1 <- CRS("+init=epsg:4326") # WGS 84
+crs(occ_plot) <- myCRS1
+crs(nsp_d1) <-myCRS1
+centroid_spdf <- occ_plot
+
+#extract the neighbouring pixles of the target locations
+#Question: not clear how to set "buffer" here?
+cent_max <- raster::extract(nsp_d1,  # raster layer
+    centroid_spdf,                   # SPDF with centroids for buffer
+    buffer = 50,                     # buffer size, units depend on CRS
+    fun=mean,                        # what to value to extract
+    df=TRUE)                         # return a dataframe? 
+cent_max$sitename <- occ_plot$sitename
+cent_max$Lat <- occ_plot$Lat
+cent_max$Elv <- occ_plot$Elv
+cent_max$Lon <- occ_plot$Lon
+
+# For the NAs after the upper fill, continue to extract via increase the value for buffer 
+occ_plot2 <- cent_max[is.na(cent_max$stp_prediction_5cm),c("Lat","Lon")] 
+centroid_spdf <- occ_plot2
+cent_max2 <- raster::extract(nsp_d1,             # raster layer
+    centroid_spdf,   # SPDF with centroids for buffer
+    buffer = 100,     # buffer size, units depend on CRS
+    fun=mean,         # what to value to extract
+    df=TRUE)         # return a dataframe? 
+cent_max2$Lat <- occ_plot2$Lat
+cent_max2$Lon <- occ_plot2$Lon
+
+# For the NAs after the upper fill, continue to extract via increase the value for buffer 
+occ_plot3 <- cent_max2[is.na(cent_max2$stp_prediction_5cm),c("Lat","Lon")]
+centroid_spdf <- occ_plot3
+
+cent_max3 <- raster::extract(nsp_d1,             # raster layer
+    centroid_spdf,   # SPDF with centroids for buffer
+    buffer = 1000,     # buffer size, units depend on CRS
+    fun=mean,         # what to value to extract
+    df=TRUE)         # return a dataframe? 
+cent_max3
+
+occ_plot4 <- cent_max3[is.na(cent_max3$stp_prediction_5cm),]
+#seems no changes from cent_max2 to cent_max3. So I stop
+```
